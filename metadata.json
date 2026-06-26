@@ -1,0 +1,6 @@
+{
+  "name": "Xtream Series Player",
+  "description": "تطبيق جلب وتشغيل المسلسلات من سرفر Xtream",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

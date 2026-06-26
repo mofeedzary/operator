@@ -80,6 +80,7 @@ export default function App() {
   const [showControls, setShowControls] = useState<boolean>(true);
   const [skipIndicator, setSkipIndicator] = useState<"forward" | "backward" | null>(null);
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
+  const [videoPlayError, setVideoPlayError] = useState<boolean>(false);
 
   // Watching History
   const [watchedHistory, setWatchedHistory] = useState<WatchedHistory[]>([]);
@@ -189,6 +190,7 @@ export default function App() {
     setPlayerEpisodes(episodesList);
     setIsPlaying(true);
     setCurrentTime(0);
+    setVideoPlayError(false);
 
     // Save/Update in Watched History
     const historyItem: WatchedHistory = {
@@ -396,6 +398,7 @@ export default function App() {
   // Auto-play video tag when activeEpisode changes
   useEffect(() => {
     if (videoRef.current && activeEpisode) {
+      setVideoPlayError(false);
       videoRef.current.load();
       videoRef.current.play()
         .then(() => setIsPlaying(true))
@@ -427,6 +430,46 @@ export default function App() {
       setError(err.message || "حدث خطأ أثناء تحديث البيانات");
       setIsRefreshing(false);
     }
+  };
+
+  // Export selected series episodes to M3U8 playlist format
+  const handleExportM3U = () => {
+    if (!selectedSeries || !seriesInfo) return;
+
+    let m3uContent = "#EXTM3U\n";
+    m3uContent += `#PLAYLIST:${selectedSeries.name}\n\n`;
+
+    // Loop through seasons
+    const seasons = Object.keys(seriesInfo.episodes).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+
+    seasons.forEach((seasonNum) => {
+      const episodes = seriesInfo.episodes[seasonNum] || [];
+      // Sort episodes by episode_num
+      const sortedEpisodes = [...episodes].sort((a, b) => a.episode_num - b.episode_num);
+
+      sortedEpisodes.forEach((episode) => {
+        const ext = episode.container_extension || "mp4";
+        const streamUrl = `http://vo5px.top/series/5252761676/6582429481/${episode.id}.${ext}`;
+        const logoUrl = selectedSeries.cover || "";
+        const titleText = episode.title ? `: ${episode.title}` : "";
+        
+        // Metadata line (with logo, group title and friendly name)
+        m3uContent += `#EXTINF:-1 tvg-id="${episode.id}" tvg-name="${selectedSeries.name} S${seasonNum}E${episode.episode_num}" tvg-logo="${logoUrl}" group-title="${selectedSeries.name} - الموسم ${seasonNum}", ${selectedSeries.name} - الموسم ${seasonNum} - الحلقة ${episode.episode_num}${titleText}\n`;
+        // Stream URL
+        m3uContent += `${streamUrl}\n\n`;
+      });
+    });
+
+    // Create a Blob and trigger download
+    const blob = new Blob([m3uContent], { type: "application/x-mpegurl;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${selectedSeries.name}.m3u8`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   // Fast format time helper
@@ -620,14 +663,69 @@ export default function App() {
                       onSeeked={() => setIsWaiting(false)}
                       onLoadStart={() => setIsWaiting(true)}
                       onCanPlay={() => setIsWaiting(false)}
+                      onError={() => {
+                        setIsWaiting(false);
+                        setVideoPlayError(true);
+                      }}
                       onClick={handleVideoClick}
                       className="w-full h-full object-contain cursor-pointer"
                       src={`/api/stream/${activeEpisode.id}/${activeEpisode.container_extension || "mp4"}`}
                       playsInline
                     />
 
+                    {/* VIDEO PLAYBACK ERROR OVERLAY (Specially optimized for MKV/TS formats on mobile) */}
+                    {videoPlayError && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/95 backdrop-blur-md z-20 p-6 text-center">
+                        <div className="w-14 h-14 bg-red-500/10 border border-red-500/20 rounded-full flex items-center justify-center mb-4 text-red-500 animate-pulse">
+                          <AlertCircle className="w-7 h-7" />
+                        </div>
+                        <h3 className="text-sm sm:text-base font-black text-slate-100 mb-2">
+                          صيغة الفيديو غير مدعومة بالمتصفح تلقائياً
+                        </h3>
+                        <p className="text-[11px] sm:text-xs text-slate-400 max-w-md mb-6 leading-relaxed">
+                          الحلقة الحالية بصيغة <span className="text-amber-500 font-black">{(activeEpisode.container_extension || "mkv").toUpperCase()}</span> وهي صيغة بث مباشر لا تعمل على متصفحات الهواتف بشكل مباشر. 
+                          <br />
+                          اضغط على الزر أدناه لتشغيلها بضغطة واحدة فوراً في تطبيق <strong className="text-slate-200">VLC</strong> الخارجي الأسرع والأفضل، أو انسخ رابط البث.
+                        </p>
+
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 w-full max-w-sm">
+                          {/* VLC External Trigger */}
+                          <a
+                            href={`vlc://vo5px.top/series/5252761676/6582429481/${activeEpisode.id}.${activeEpisode.container_extension || "mp4"}`}
+                            className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-slate-950 font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-orange-600/20 transition-all active:scale-95"
+                          >
+                            <Play className="w-3.5 h-3.5 fill-current" />
+                            التشغيل باستخدام تطبيق VLC
+                          </a>
+
+                          {/* Copy Link */}
+                          <button
+                            onClick={() => copyToClipboard(`http://vo5px.top/series/5252761676/6582429481/${activeEpisode.id}.${activeEpisode.container_extension || "mp4"}`)}
+                            className="w-full sm:w-auto px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-slate-200 font-bold text-xs rounded-xl border border-slate-800 flex items-center justify-center gap-2 transition-all active:scale-95"
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>{copiedLink ? "تم نسخ الرابط!" : "نسخ رابط البث"}</span>
+                          </button>
+                        </div>
+
+                        {/* Reset Playback Error */}
+                        <button
+                          onClick={() => {
+                            setVideoPlayError(false);
+                            if (videoRef.current) {
+                              videoRef.current.load();
+                              videoRef.current.play().catch(() => {});
+                            }
+                          }}
+                          className="text-[10px] text-slate-500 hover:text-amber-500 transition-colors mt-4 underline"
+                        >
+                          محاولة التشغيل بالمتصفح مجدداً
+                        </button>
+                      </div>
+                    )}
+
                     {/* BUFFERING / LOADING OVERLAY */}
-                    {isWaiting && (
+                    {isWaiting && !videoPlayError && (
                       <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-[2px] pointer-events-none z-10 transition-all duration-300">
                         <div className="relative flex items-center justify-center">
                           <div className="w-14 h-14 border-4 border-amber-500/20 border-t-amber-500 rounded-full animate-spin"></div>
@@ -1320,34 +1418,51 @@ export default function App() {
                       </div>
 
                       {/* Right Column: Directors and cast info */}
-                      <div className="bg-slate-950/40 border border-slate-800/60 rounded-2xl p-4 space-y-3.5 text-xs">
-                        {seriesInfo.info?.director && (
-                          <div className="flex items-start gap-2">
-                            <Clapperboard className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                            <div>
-                              <p className="text-slate-500 font-semibold">المخرج</p>
-                              <p className="text-slate-200 mt-0.5">{seriesInfo.info.director}</p>
+                      <div className="bg-slate-950/40 border border-slate-800/60 rounded-2xl p-4 space-y-3.5 text-xs flex flex-col justify-between">
+                        <div className="space-y-3.5">
+                          {seriesInfo.info?.director && (
+                            <div className="flex items-start gap-2">
+                              <Clapperboard className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                              <div>
+                                <p className="text-slate-500 font-semibold">المخرج</p>
+                                <p className="text-slate-200 mt-0.5">{seriesInfo.info.director}</p>
+                              </div>
                             </div>
-                          </div>
-                        )}
-                        {seriesInfo.info?.cast && (
-                          <div className="flex items-start gap-2">
-                            <User className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                            <div>
-                              <p className="text-slate-500 font-semibold">طاقم التمثيل</p>
-                              <p className="text-slate-200 mt-0.5 line-clamp-2">{seriesInfo.info.cast}</p>
+                          )}
+                          {seriesInfo.info?.cast && (
+                            <div className="flex items-start gap-2">
+                              <User className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                              <div>
+                                <p className="text-slate-500 font-semibold">طاقم التمثيل</p>
+                                <p className="text-slate-200 mt-0.5 line-clamp-2">{seriesInfo.info.cast}</p>
+                              </div>
                             </div>
-                          </div>
-                        )}
-                        {seriesInfo.info?.releaseDate && (
-                          <div className="flex items-start gap-2">
-                            <Calendar className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                            <div>
-                              <p className="text-slate-500 font-semibold">تاريخ الصدور الأول</p>
-                              <p className="text-slate-200 mt-0.5 font-mono">{seriesInfo.info.releaseDate}</p>
+                          )}
+                          {seriesInfo.info?.releaseDate && (
+                            <div className="flex items-start gap-2">
+                              <Calendar className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                              <div>
+                                <p className="text-slate-500 font-semibold">تاريخ الصدور الأول</p>
+                                <p className="text-slate-200 mt-0.5 font-mono">{seriesInfo.info.releaseDate}</p>
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          )}
+                        </div>
+
+                        {/* Export to M3U8 Playlist Section */}
+                        <div className="border-t border-slate-800/60 pt-3.5 mt-3">
+                          <button
+                            onClick={handleExportM3U}
+                            className="w-full py-2 px-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-amber-500/10 hover:shadow-amber-500/20 transition-all active:scale-95 cursor-pointer"
+                            title="تصدير وتحميل جميع حلقات المسلسل في ملف M3U8 واحد"
+                          >
+                            <ListVideo className="w-4 h-4" />
+                            <span>تصدير المسلسل كـ M3U8</span>
+                          </button>
+                          <p className="text-[9px] sm:text-[10px] text-slate-500 text-center mt-1.5 leading-relaxed">
+                            لتشغيل جميع حلقات المسلسل دفعة واحدة على تطبيق VLC أو برامج IPTV الخارجية وسينك لايف.
+                          </p>
+                        </div>
                       </div>
 
                     </div>

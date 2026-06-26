@@ -1,13 +1,1373 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" class="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My Google AI Studio App</title>
+    <title>بوابة المسلسلات الذكية | Xtream Series Portal</title>
+    
+    <!-- Google Fonts: Cairo (Arabic) & Inter (English numbers/metadata) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;700;900&family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet" />
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Cairo', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+              mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+            },
+            colors: {
+              slate: {
+                950: '#020617',
+                900: '#0f172a',
+                850: '#182235',
+                800: '#1e293b',
+                750: '#273549',
+                700: '#334155',
+              },
+              amber: {
+                500: '#fbbf24',
+                600: '#d97706',
+              }
+            }
+          }
+        }
+      }
+    </script>
+    
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+      /* Smooth custom scrollbars */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #020617;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #1e293b;
+        border-radius: 999px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #fbbf24;
+      }
+      
+      /* Glowing animations */
+      .glow-border {
+        position: relative;
+      }
+      .glow-border::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        border: 1px solid rgba(251, 191, 36, 0.15);
+        pointer-events: none;
+        transition: border-color 0.3s ease;
+      }
+      .glow-border:hover::after {
+        border-color: rgba(251, 191, 36, 0.4);
+      }
+      
+      /* CSS Hide standard controls on custom video player */
+      video::-webkit-media-controls {
+        display: none !important;
+      }
+    </style>
   </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+  <body class="bg-slate-950 text-slate-100 min-h-screen font-sans flex flex-col selection:bg-amber-500 selection:text-slate-950 overflow-x-hidden">
+    
+    <!-- HEADER -->
+    <header class="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-md border-b border-slate-900 px-4 py-3.5">
+      <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+        
+        <!-- App Brand/Logo -->
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-gradient-to-tr from-amber-600 to-amber-400 rounded-xl flex items-center justify-center text-slate-950 shadow-lg shadow-amber-500/10">
+            <i data-lucide="tv" class="w-5 h-5 stroke-[2.5]"></i>
+          </div>
+          <div>
+            <h1 class="text-base sm:text-lg font-black tracking-tight text-white flex items-center gap-1.5">
+              بوابة المسلسلات الذكية <span class="text-[10px] bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full font-bold border border-amber-500/20">Xtream Portal</span>
+            </h1>
+            <p class="text-[10px] text-slate-400 font-medium">مشغل وإدارة ملفات IPTV للمسلسلات</p>
+          </div>
+        </div>
+
+        <!-- Connection Stats & Cache Management -->
+        <div class="flex items-center gap-2.5 sm:gap-4 flex-wrap justify-center">
+          <!-- Server Status Indicator -->
+          <div class="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full">
+            <div class="relative flex h-2 w-2">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </div>
+            <span class="text-[10px] sm:text-xs font-bold text-emerald-400">سيرفر نشط</span>
+          </div>
+
+          <!-- Watch History filter -->
+          <button id="btn-history-filter" onclick="toggleHistoryFilter()" class="flex items-center gap-1.5 bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 px-3 py-1 rounded-full text-[10px] sm:text-xs text-slate-300 transition-all active:scale-95 cursor-pointer">
+            <i data-lucide="history" class="w-3.5 h-3.5"></i>
+            <span>المشاهدة مؤخراً</span>
+          </button>
+
+          <!-- Favorites list filter -->
+          <button id="btn-favorites-filter" onclick="toggleFavoritesFilter()" class="flex items-center gap-1.5 bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 px-3 py-1 rounded-full text-[10px] sm:text-xs text-slate-300 transition-all active:scale-95 cursor-pointer">
+            <i data-lucide="star" class="w-3.5 h-3.5"></i>
+            <span>المفضلة</span>
+          </button>
+
+          <!-- Refresh Database Button -->
+          <button id="btn-refresh" onclick="handleRefreshCache()" class="flex items-center gap-1.5 bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-slate-950 font-black text-[10px] sm:text-xs px-3 py-1 rounded-full border border-amber-500/20 hover:border-amber-500/40 transition-all active:scale-95 shadow-lg shadow-amber-500/5 cursor-pointer">
+            <i data-lucide="refresh-cw" id="refresh-icon" class="w-3.5 h-3.5"></i>
+            <span id="refresh-text">تحديث المسلسلات</span>
+          </button>
+        </div>
+        
+      </div>
+    </header>
+
+    <!-- MAIN APP WRAPPER -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 py-6 flex flex-col gap-6">
+
+      <!-- WATCHED HISTORY CONTAINER (Horizontal scroll if available) -->
+      <section id="watch-history-section" class="hidden bg-slate-900/40 border border-slate-900 rounded-3xl p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-sm font-black text-white flex items-center gap-2">
+            <i data-lucide="clock" class="w-4 h-4 text-amber-500"></i>
+            <span>واصل المشاهدة</span>
+          </h2>
+          <button onclick="clearWatchHistory()" class="text-[10px] text-slate-500 hover:text-red-400 transition-colors">إفراغ السجل</button>
+        </div>
+        <div id="watch-history-list" class="flex gap-4 overflow-x-auto pb-2 scroll-smooth">
+          <!-- Populated by JS -->
+        </div>
+      </section>
+
+      <!-- SEARCH & NAVIGATION -->
+      <section class="flex flex-col gap-4">
+        <!-- Search bar -->
+        <div class="relative w-full max-w-2xl mx-auto">
+          <i data-lucide="search" class="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 pointer-events-none"></i>
+          <input 
+            type="text" 
+            id="search-input"
+            oninput="handleSearch(this.value)"
+            placeholder="ابحث عن اسم مسلسل، تصنيف، أو قصة..." 
+            class="w-full bg-slate-900/60 border border-slate-850 focus:border-amber-500/50 hover:border-slate-800 pr-12 pl-4 py-3.5 rounded-2xl text-sm text-slate-100 outline-none transition-all placeholder:text-slate-500 shadow-xl shadow-black/10"
+          />
+        </div>
+
+        <!-- Horizontal Categories Slider -->
+        <div class="relative mt-2">
+          <div id="categories-container" class="flex items-center gap-2 overflow-x-auto pb-3 -mx-4 px-4 scrollbar-none scroll-smooth">
+            <!-- Loading Categories Placeholder -->
+            <div class="animate-pulse flex gap-2">
+              <div class="h-9 w-24 bg-slate-900 rounded-full"></div>
+              <div class="h-9 w-28 bg-slate-900 rounded-full"></div>
+              <div class="h-9 w-20 bg-slate-900 rounded-full"></div>
+              <div class="h-9 w-32 bg-slate-900 rounded-full"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SERIES GRID SECTION -->
+      <section class="flex-grow flex flex-col">
+        <!-- Result count or active filters details -->
+        <div class="flex items-center justify-between mb-4 text-xs text-slate-400">
+          <p id="grid-status-text">جاري تحميل المسلسلات...</p>
+          <div class="flex items-center gap-2 text-[11px] text-slate-500">
+            <span>تحديث يومي تلقائي مدمج</span>
+            <i data-lucide="info" class="w-3 h-3"></i>
+          </div>
+        </div>
+
+        <!-- Series Grid -->
+        <div id="series-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-5">
+          <!-- Populated by JS -->
+        </div>
+
+        <!-- No Results UI -->
+        <div id="no-results" class="hidden flex-col items-center justify-center py-16 text-center">
+          <div class="w-16 h-16 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-center text-slate-600 mb-4">
+            <i data-lucide="search-slash" class="w-8 h-8"></i>
+          </div>
+          <h3 class="text-base font-bold text-slate-200 mb-1">لم يتم العثور على أي نتائج</h3>
+          <p class="text-xs text-slate-500 max-w-sm">جرب استخدام كلمات بحث بديلة أو تنقل عبر الأقسام الأخرى.</p>
+        </div>
+      </section>
+      
+    </main>
+
+    <!-- MAIN IMMERSIVE MODAL (Details + Episodes + Embedded Player) -->
+    <div id="detail-modal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-950/98 flex flex-col">
+      <!-- Close and Control Bar -->
+      <div class="sticky top-0 z-50 bg-slate-950/90 backdrop-blur-md border-b border-slate-900 px-4 py-3 flex items-center justify-between">
+        <button onclick="closeDetailModal()" class="flex items-center gap-2 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 rounded-xl text-xs font-black transition-all active:scale-95 cursor-pointer">
+          <i data-lucide="chevron-right" class="w-4 h-4"></i>
+          <span>العودة للرئيسية</span>
+        </button>
+
+        <!-- Dynamic Episode Info Header -->
+        <div id="playing-episode-banner" class="hidden text-xs text-amber-400 font-bold max-w-sm truncate text-center">
+          <!-- Filled by JS -->
+        </div>
+
+        <div class="flex items-center gap-2">
+          <!-- Export to M3U8 Button -->
+          <button id="btn-export-m3u" onclick="handleExportM3U8()" class="flex items-center gap-1.5 bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-slate-950 font-black text-xs px-3 py-1.5 rounded-xl border border-amber-500/20 hover:border-amber-500/40 transition-all active:scale-95 cursor-pointer" title="تحميل ملف M3U8 لتشغيل حلقات المسلسل دفعة واحدة">
+            <i data-lucide="list-video" class="w-4 h-4"></i>
+            <span>تصدير M3U8</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- VIDEO PLAYER STAGE (If playing an episode, slides down from top) -->
+      <div id="video-player-container" class="hidden w-full bg-black relative border-b border-slate-900 shadow-2xl">
+        <div class="max-w-5xl mx-auto aspect-video relative group overflow-hidden">
+          
+          <!-- Pure HTML5 video tag with proxy path -->
+          <video 
+            id="video-element"
+            preload="auto"
+            class="w-full h-full object-contain cursor-pointer"
+          ></video>
+
+          <!-- CUSTOM VIDEO CONTROLS OVERLAY -->
+          <div id="video-controls-overlay" class="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-transparent to-slate-950/50 flex flex-col justify-between opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <!-- Top Controls (Title) -->
+            <div class="p-4 flex items-center justify-between">
+              <span id="video-title" class="text-xs sm:text-sm font-black text-slate-100 truncate max-w-xl"></span>
+              <button onclick="closeVideoPlayer()" class="w-8 h-8 rounded-full bg-slate-900/80 border border-slate-800 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all">
+                <i data-lucide="x" class="w-4 h-4"></i>
+              </button>
+            </div>
+
+            <!-- Big Central Buttons -->
+            <div class="flex items-center justify-center gap-8">
+              <button onclick="skipTime(-10)" class="w-11 h-11 rounded-full bg-slate-900/80 border border-slate-800 flex items-center justify-center hover:border-amber-500 transition-all active:scale-90" title="تراجع 10 ثوانٍ">
+                <i data-lucide="rotate-ccw" class="w-5 h-5 text-slate-300"></i>
+              </button>
+              <button id="video-play-btn" onclick="togglePlayPause()" class="w-16 h-16 rounded-full bg-amber-500 hover:bg-amber-400 flex items-center justify-center text-slate-950 shadow-lg shadow-amber-500/25 active:scale-95 transition-all" title="تشغيل / إيقاف">
+                <i data-lucide="play" id="play-btn-icon" class="w-6 h-6 fill-current"></i>
+              </button>
+              <button onclick="skipTime(10)" class="w-11 h-11 rounded-full bg-slate-900/80 border border-slate-800 flex items-center justify-center hover:border-amber-500 transition-all active:scale-90" title="تقديم 10 ثوانٍ">
+                <i data-lucide="rotate-cw" class="w-5 h-5 text-slate-300"></i>
+              </button>
+            </div>
+
+            <!-- Bottom Control Bar -->
+            <div class="p-4 space-y-3">
+              <!-- Timeline slider -->
+              <div class="flex items-center gap-3">
+                <span id="current-time-text" class="text-[10px] font-mono text-slate-400">00:00</span>
+                <input 
+                  type="range" 
+                  id="timeline-slider" 
+                  min="0" 
+                  max="100" 
+                  value="0"
+                  oninput="handleTimelineSeek(this.value)"
+                  class="flex-grow accent-amber-500 h-1 rounded-lg bg-slate-800 appearance-none cursor-pointer outline-none"
+                />
+                <span id="duration-time-text" class="text-[10px] font-mono text-slate-400">00:00</span>
+              </div>
+
+              <!-- Extra Controls -->
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                  <!-- Volume Control -->
+                  <div class="flex items-center gap-2">
+                    <button onclick="toggleMute()" class="text-slate-300 hover:text-amber-500 transition-colors">
+                      <i data-lucide="volume-2" id="volume-icon" class="w-4 h-4"></i>
+                    </button>
+                    <input 
+                      type="range" 
+                      id="volume-slider" 
+                      min="0" 
+                      max="1" 
+                      step="0.1" 
+                      value="1"
+                      oninput="handleVolumeChange(this.value)"
+                      class="w-16 accent-amber-500 h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer outline-none hidden sm:block"
+                    />
+                  </div>
+                  <!-- Back / Next Episode if available -->
+                  <span id="episodes-navigator" class="text-[11px] text-slate-400 hidden md:block"></span>
+                </div>
+
+                <div class="flex items-center gap-3">
+                  <!-- PIP button -->
+                  <button onclick="togglePictureInPicture()" class="text-slate-300 hover:text-amber-500 transition-colors" title="صورة داخل صورة">
+                    <i data-lucide="pip" class="w-4 h-4"></i>
+                  </button>
+                  <!-- VLC Launcher in Controls -->
+                  <a id="vlc-direct-link" href="#" class="flex items-center gap-1 text-slate-300 hover:text-orange-500 transition-colors text-xs" title="فتح مباشرة بتطبيق VLC">
+                    <i data-lucide="play-circle" class="w-4 h-4"></i>
+                    <span class="text-[10px] hidden sm:inline">مشغل خارجي VLC</span>
+                  </a>
+                  <!-- Fullscreen button -->
+                  <button onclick="toggleFullscreen()" class="text-slate-300 hover:text-amber-500 transition-colors" title="شاشة كاملة">
+                    <i data-lucide="maximize" class="w-4 h-4"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- PLAYBACK BUFFERING INDICATOR -->
+          <div id="video-buffering" class="hidden absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[1px] pointer-events-none z-10">
+            <div class="relative flex items-center justify-center">
+              <div class="w-14 h-14 border-4 border-amber-500/20 border-t-amber-500 rounded-full animate-spin"></div>
+            </div>
+          </div>
+
+          <!-- VIDEO RECOVERY OVERLAY (CORS / Safari / Format Compatibility) -->
+          <div id="video-error-overlay" class="hidden absolute inset-0 flex flex-col items-center justify-center bg-slate-950/98 backdrop-blur-md z-20 p-6 text-center">
+            <div class="w-12 h-12 bg-red-500/10 border border-red-500/20 rounded-full flex items-center justify-center mb-3 text-red-500 animate-pulse">
+              <i data-lucide="alert-circle" class="w-6 h-6"></i>
+            </div>
+            <h3 class="text-xs sm:text-sm font-black text-slate-100 mb-1">
+              صيغة البث المباشر تحتاج مشغلاً خارجيّاً
+            </h3>
+            <p id="video-error-format-desc" class="text-[10px] sm:text-xs text-slate-400 max-w-md mb-4 leading-relaxed">
+              هذه الحلقة بصيغة MKV أو TS وهي صيغ بث مباشر مخصصة لأجهزة التلفزيون والريسيفر، ولا تعمل على المتصفحات المحمولة مباشرة. اضغط للتشغيل الفوري في تطبيق VLC الخارجي الأفضل أو انسخ الرابط.
+            </p>
+
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-2 w-full max-w-sm">
+              <!-- Open in VLC -->
+              <a
+                id="error-vlc-btn"
+                href="#"
+                class="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-slate-950 font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-orange-600/10 transition-all active:scale-95 cursor-pointer"
+              >
+                <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i>
+                التشغيل بتطبيق VLC
+              </a>
+
+              <!-- Copy Streaming Link -->
+              <button
+                id="error-copy-btn"
+                onclick="handleCopyStreamLink()"
+                class="w-full sm:w-auto px-4 py-2 bg-slate-900 hover:bg-slate-800 text-slate-200 font-bold text-xs rounded-xl border border-slate-800 flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
+              >
+                <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                <span id="error-copy-btn-text">نسخ رابط البث مباشر</span>
+              </button>
+            </div>
+
+            <!-- Retry Option -->
+            <button
+              onclick="retryWebPlayback()"
+              class="text-[9px] text-slate-500 hover:text-amber-500 transition-colors mt-3.5 underline"
+            >
+              إعادة تجربة التشغيل بالمتصفح
+            </button>
+          </div>
+          
+        </div>
+      </div>
+
+      <!-- IMMERSIVE DETAILS SECTION -->
+      <div class="max-w-7xl w-full mx-auto p-4 sm:p-6 flex-grow flex flex-col gap-6">
+        
+        <!-- Header Banner Section -->
+        <div id="series-banner-card" class="relative rounded-3xl overflow-hidden min-h-[180px] sm:min-h-[260px] flex items-end p-5 sm:p-8 bg-cover bg-center">
+          <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/70 to-transparent"></div>
+          
+          <div class="relative flex flex-col md:flex-row gap-5 items-end w-full">
+            <!-- Poster image -->
+            <img 
+              id="detail-poster" 
+              src="https://images.unsplash.com/photo-1594909122845-11baa439b7bf?w=500" 
+              class="w-24 sm:w-36 rounded-2xl border-2 border-slate-800 shadow-xl self-center md:self-end object-cover aspect-[2/3]"
+              alt="البوستر"
+            />
+            
+            <div class="flex-grow text-center md:text-right space-y-2">
+              <span id="detail-genre" class="inline-block text-[10px] sm:text-xs text-amber-500 font-black bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-full">تصنيف دراما</span>
+              <h2 id="detail-title" class="text-lg sm:text-2xl font-black text-white">تحميل تفاصيل المسلسل...</h2>
+              
+              <!-- Plot description -->
+              <p id="detail-plot" class="text-xs sm:text-sm text-slate-300 max-w-3xl leading-relaxed font-light">لا توجد قصة متاحة لهذا المسلسل.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Meta Details and Season Layout Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+          
+          <!-- Cast and Directors box (1 Column) -->
+          <div class="bg-slate-900/40 border border-slate-900 rounded-2xl p-5 space-y-4 text-xs order-2 lg:order-1">
+            <h3 class="text-xs font-black text-white border-b border-slate-800/80 pb-2">تفاصيل الإنتاج</h3>
+            
+            <div class="flex items-start gap-2.5">
+              <i data-lucide="clapperboard" class="w-4 h-4 text-amber-500 shrink-0 mt-0.5"></i>
+              <div>
+                <p class="text-slate-500 font-bold">المخرج</p>
+                <p id="detail-director" class="text-slate-200 mt-0.5 font-medium">-</p>
+              </div>
+            </div>
+
+            <div class="flex items-start gap-2.5">
+              <i data-lucide="user" class="w-4 h-4 text-amber-500 shrink-0 mt-0.5"></i>
+              <div>
+                <p class="text-slate-500 font-bold">طاقم التمثيل</p>
+                <p id="detail-cast" class="text-slate-200 mt-0.5 font-medium line-clamp-3">-</p>
+              </div>
+            </div>
+
+            <div class="flex items-start gap-2.5">
+              <i data-lucide="calendar" class="w-4 h-4 text-amber-500 shrink-0 mt-0.5"></i>
+              <div>
+                <p class="text-slate-500 font-bold">سنة الإصدار الأولى</p>
+                <p id="detail-release" class="text-slate-200 mt-0.5 font-mono">-</p>
+              </div>
+            </div>
+            
+            <div class="pt-3 border-t border-slate-800 text-[10px] text-slate-500 leading-relaxed">
+              اضغط على تصدير M3U8 لتحميل كافة الحلقات بمشغل كوديك ذكي يدعم سينك لايف وتطبيقات تلفاز أندرويد الذكية.
+            </div>
+          </div>
+
+          <!-- Seasons and Episodes box (3 Columns) -->
+          <div class="lg:col-span-3 space-y-4 order-1 lg:order-2">
+            
+            <!-- Seasons Pills Navigator -->
+            <div class="flex flex-col gap-2">
+              <span class="text-xs font-black text-slate-400 flex items-center gap-1.5">
+                <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+                <span>المواسم المتاحة</span>
+              </span>
+              <div id="seasons-navigator" class="flex gap-2 overflow-x-auto pb-1.5">
+                <!-- Populated by JS -->
+              </div>
+            </div>
+
+            <!-- Episodes List Header -->
+            <div class="flex items-center justify-between border-b border-slate-900 pb-2">
+              <span class="text-xs font-black text-slate-300 flex items-center gap-1.5">
+                <i data-lucide="play-circle" class="w-3.5 h-3.5 text-amber-500"></i>
+                <span>قائمة الحلقات</span>
+              </span>
+              <span id="episodes-count-badge" class="text-[10px] bg-slate-900 text-slate-400 px-2 py-0.5 rounded-full font-bold">0 حلقة</span>
+            </div>
+
+            <!-- Episodes Grid/List -->
+            <div id="episodes-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              <!-- Loading Episodes placeholder -->
+              <div class="animate-pulse bg-slate-900/40 p-3.5 rounded-xl h-20"></div>
+              <div class="animate-pulse bg-slate-900/40 p-3.5 rounded-xl h-20"></div>
+              <div class="animate-pulse bg-slate-900/40 p-3.5 rounded-xl h-20"></div>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="mt-auto border-t border-slate-900 py-6 text-center text-xs text-slate-500 bg-slate-950">
+      <div class="max-w-7xl mx-auto px-4 space-y-2">
+        <p class="font-bold text-slate-400">بوابة المسلسلات الذكية © 2026. جميع الحقوق محفوظة.</p>
+        <p class="text-[10px] leading-relaxed max-w-xl mx-auto">
+          تم تصميم هذه البوابة بأسلوب معزز ذكياً لتسريع جلب وتصفح قائمة المسلسلات بشكل يومي. يدعم المشغل التلقائي جميع صيغ الفيديو الحديثة مع ميزة التحويل المباشر لروابط VLC في الهواتف الذكية.
+        </p>
+      </div>
+    </footer>
+
+    <!-- STATE ENGINE & API BRIDGE SCRIPT -->
+    <script>
+      // Universal Application State
+      const state = {
+        categories: [],
+        series: [],
+        filteredSeries: [],
+        
+        selectedCategory: 'all',
+        searchQuery: '',
+        
+        selectedSeries: null,
+        seriesInfo: null,
+        selectedSeason: null,
+        
+        activeEpisode: null,
+        playerEpisodes: [],
+        
+        watchHistory: [],
+        favorites: [],
+        
+        isRefreshing: false,
+        isPlaying: false,
+        isWaiting: false,
+        videoPlayError: false,
+        
+        showHistoryOnly: false,
+        showFavoritesOnly: false,
+      };
+
+      // API Roots
+      const API_ROOT = "/api";
+
+      // Initialize on Load
+      window.addEventListener("DOMContentLoaded", async () => {
+        loadHistoryAndFavorites();
+        await initializePortal();
+        
+        // Setup Video Player Listeners
+        const video = document.getElementById("video-element");
+        video.addEventListener("waiting", () => toggleWaiting(true));
+        video.addEventListener("canplay", () => toggleWaiting(false));
+        video.addEventListener("playing", () => {
+          state.isPlaying = true;
+          toggleWaiting(false);
+          updatePlayPauseButton();
+        });
+        video.addEventListener("pause", () => {
+          state.isPlaying = false;
+          updatePlayPauseButton();
+        });
+        video.addEventListener("timeupdate", handleTimeUpdate);
+        video.addEventListener("durationchange", () => {
+          state.duration = video.duration;
+        });
+        video.addEventListener("error", () => {
+          state.videoPlayError = true;
+          toggleWaiting(false);
+          document.getElementById("video-error-overlay").classList.remove("hidden");
+          
+          // Construct deep links for error template
+          const activeExt = state.activeEpisode.container_extension || "mp4";
+          const streamUrl = `http://vo5px.top/series/5252761676/6582429481/${state.activeEpisode.id}.${activeExt}`;
+          const vlcDeepLink = `vlc://${streamUrl.replace(/^https?:\/\//, '')}`;
+          
+          document.getElementById("error-vlc-btn").href = vlcDeepLink;
+        });
+      });
+
+      // Load History and Favorites from localStorage
+      function loadHistoryAndFavorites() {
+        try {
+          const hist = localStorage.getItem("xtream_watch_history");
+          if (hist) state.watchHistory = JSON.parse(hist);
+          
+          const favs = localStorage.getItem("xtream_favorites");
+          if (favs) state.favorites = JSON.parse(favs);
+          
+          renderWatchHistorySection();
+        } catch (e) {
+          console.error("Failed to load local storage state", e);
+        }
+      }
+
+      // Save Watch History
+      function saveWatchHistory() {
+        localStorage.setItem("xtream_watch_history", JSON.stringify(state.watchHistory));
+        renderWatchHistorySection();
+      }
+
+      // Save Favorites
+      function saveFavorites() {
+        localStorage.setItem("xtream_favorites", JSON.stringify(state.favorites));
+      }
+
+      // Core Portal Initialization
+      async function initializePortal() {
+        try {
+          // Fetch categories and all series parallel
+          const [catRes, seriesRes] = await Promise.all([
+            fetch(`${API_ROOT}/series/categories`),
+            fetch(`${API_ROOT}/series/all`)
+          ]);
+
+          if (!catRes.ok || !seriesRes.ok) {
+            throw new Error("خطأ في الاتصال بالسيرفر وجلب قوائم القنوات");
+          }
+
+          state.categories = await catRes.json();
+          state.series = await seriesRes.json();
+          state.filteredSeries = [...state.series];
+
+          renderCategories();
+          renderSeriesGrid();
+          updateStatusText();
+          
+          lucide.createIcons();
+        } catch (error) {
+          console.error("Initialization failed:", error);
+          document.getElementById("grid-status-text").innerText = "فشل تحديث البيانات، يرجى المحاولة لاحقاً.";
+        }
+      }
+
+      // Handle Refresh Database
+      async function handleRefreshCache() {
+        if (state.isRefreshing) return;
+        
+        state.isRefreshing = true;
+        const icon = document.getElementById("refresh-icon");
+        const text = document.getElementById("refresh-text");
+        
+        icon.classList.add("animate-spin");
+        text.innerText = "جاري التحديث...";
+
+        try {
+          const res = await fetch(`${API_ROOT}/cache/clear`, { method: "POST" });
+          if (!res.ok) throw new Error("فشل إفراغ الذاكرة المؤقتة");
+          
+          // Briefly pause for visual sync feedback, then reload
+          setTimeout(() => {
+            window.location.reload();
+          }, 800);
+        } catch (err) {
+          alert("خطأ أثناء تحديث البيانات: " + err.message);
+          icon.classList.remove("animate-spin");
+          text.innerText = "تحديث المسلسلات";
+          state.isRefreshing = false;
+        }
+      }
+
+      // Render Category Selector Scrollbar
+      function renderCategories() {
+        const container = document.getElementById("categories-container");
+        
+        // Count series per category
+        const catCounts = {};
+        state.series.forEach(item => {
+          catCounts[item.category_id] = (catCounts[item.category_id] || 0) + 1;
+        });
+
+        // Add 'All' category
+        let html = `
+          <button 
+            onclick="selectCategory('all')" 
+            class="px-4 py-1.5 rounded-full text-xs font-black shrink-0 transition-all cursor-pointer ${
+              state.selectedCategory === 'all' 
+                ? 'bg-amber-500 text-slate-950 font-black shadow-lg shadow-amber-500/10' 
+                : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-850 hover:bg-slate-800'
+            }"
+          >
+            الكل (${state.series.length})
+          </button>
+        `;
+
+        // Sort categories by name
+        const sortedCats = [...state.categories].sort((a, b) => a.category_name.localeCompare(b.category_name, 'ar'));
+
+        sortedCats.forEach(cat => {
+          const count = catCounts[cat.category_id] || 0;
+          if (count === 0) return; // Skip empty categories for cleaner design
+          
+          const isActive = state.selectedCategory === cat.category_id;
+          html += `
+            <button 
+              onclick="selectCategory('${cat.category_id}')" 
+              class="px-4 py-1.5 rounded-full text-xs font-medium shrink-0 transition-all cursor-pointer ${
+                isActive 
+                  ? 'bg-amber-500 text-slate-950 font-black shadow-lg shadow-amber-500/10' 
+                  : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-850 hover:bg-slate-800'
+              }"
+            >
+              ${cat.category_name} (${count})
+            </button>
+          `;
+        });
+
+        container.innerHTML = html;
+      }
+
+      // Category filter trigger
+      function selectCategory(catId) {
+        state.selectedCategory = catId;
+        state.showHistoryOnly = false;
+        state.showFavoritesOnly = false;
+        updateActiveFilterButtons();
+        
+        filterAndRender();
+        renderCategories();
+      }
+
+      // Toggle Favorites Filter View
+      function toggleFavoritesFilter() {
+        state.showFavoritesOnly = !state.showFavoritesOnly;
+        state.showHistoryOnly = false;
+        state.selectedCategory = 'all';
+        updateActiveFilterButtons();
+        
+        filterAndRender();
+        renderCategories();
+      }
+
+      // Toggle History Filter View
+      function toggleHistoryFilter() {
+        state.showHistoryOnly = !state.showHistoryOnly;
+        state.showFavoritesOnly = false;
+        state.selectedCategory = 'all';
+        updateActiveFilterButtons();
+        
+        filterAndRender();
+        renderCategories();
+      }
+
+      // Update Filter Button Styles
+      function updateActiveFilterButtons() {
+        const btnFav = document.getElementById("btn-favorites-filter");
+        const btnHist = document.getElementById("btn-history-filter");
+
+        if (state.showFavoritesOnly) {
+          btnFav.className = "flex items-center gap-1.5 bg-amber-500 text-slate-950 border border-amber-500 font-bold px-3 py-1 rounded-full text-[10px] sm:text-xs transition-all active:scale-95 cursor-pointer";
+        } else {
+          btnFav.className = "flex items-center gap-1.5 bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 px-3 py-1 rounded-full text-[10px] sm:text-xs text-slate-300 transition-all active:scale-95 cursor-pointer";
+        }
+
+        if (state.showHistoryOnly) {
+          btnHist.className = "flex items-center gap-1.5 bg-amber-500 text-slate-950 border border-amber-500 font-bold px-3 py-1 rounded-full text-[10px] sm:text-xs transition-all active:scale-95 cursor-pointer";
+        } else {
+          btnHist.className = "flex items-center gap-1.5 bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 px-3 py-1 rounded-full text-[10px] sm:text-xs text-slate-300 transition-all active:scale-95 cursor-pointer";
+        }
+      }
+
+      // Core Filtering logic
+      function filterAndRender() {
+        let results = [...state.series];
+
+        // 1. Filter by category
+        if (state.selectedCategory !== 'all') {
+          results = results.filter(item => String(item.category_id) === String(state.selectedCategory));
+        }
+
+        // 2. Filter by Search Query
+        if (state.searchQuery.trim() !== '') {
+          const query = state.searchQuery.toLowerCase();
+          results = results.filter(item => 
+            (item.name && item.name.toLowerCase().includes(query)) ||
+            (item.plot && item.plot.toLowerCase().includes(query)) ||
+            (item.genre && item.genre.toLowerCase().includes(query))
+          );
+        }
+
+        // 3. Filter by Favorites
+        if (state.showFavoritesOnly) {
+          results = results.filter(item => state.favorites.includes(String(item.series_id)));
+        }
+
+        // 4. Filter by Watch History series
+        if (state.showHistoryOnly) {
+          const historySeriesIds = [...new Set(state.watchHistory.map(h => String(h.seriesId)))];
+          results = results.filter(item => historySeriesIds.includes(String(item.series_id)));
+        }
+
+        state.filteredSeries = results;
+        renderSeriesGrid();
+        updateStatusText();
+      }
+
+      // Search Trigger
+      function handleSearch(val) {
+        state.searchQuery = val;
+        filterAndRender();
+      }
+
+      // Render Series Grid
+      function renderSeriesGrid() {
+        const grid = document.getElementById("series-grid");
+        const noResults = document.getElementById("no-results");
+        
+        if (state.filteredSeries.length === 0) {
+          grid.innerHTML = "";
+          noResults.classList.remove("hidden");
+          noResults.classList.add("flex");
+          return;
+        }
+
+        noResults.classList.add("hidden");
+        noResults.classList.remove("flex");
+
+        let html = "";
+        state.filteredSeries.forEach(item => {
+          const isFav = state.favorites.includes(String(item.series_id));
+          const favIconClass = isFav ? "fill-amber-500 text-amber-500" : "text-slate-400 hover:text-amber-500";
+          
+          html += `
+            <div class="group relative bg-slate-900/40 border border-slate-900 rounded-2xl overflow-hidden glow-border transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-black/60 flex flex-col h-full">
+              <!-- Clickable poster -->
+              <div onclick="openSeriesDetail('${item.series_id}')" class="relative aspect-[2/3] w-full overflow-hidden cursor-pointer bg-slate-950">
+                <img 
+                  src="${item.cover || 'https://images.unsplash.com/photo-1594909122845-11baa439b7bf?w=500'}" 
+                  class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                  loading="lazy"
+                  alt="${item.name}"
+                  referrerpolicy="no-referrer"
+                />
+                
+                <!-- Category badge inside poster -->
+                <span class="absolute top-2.5 right-2.5 bg-slate-950/80 backdrop-blur-md border border-slate-800 text-[9px] text-amber-400 px-2 py-0.5 rounded-md font-bold max-w-[120px] truncate">
+                  ${item.genre || 'دراما'}
+                </span>
+              </div>
+
+              <!-- Star Rating / Favorite quick toggle -->
+              <button 
+                onclick="toggleFavorite(event, '${item.series_id}')" 
+                class="absolute top-2.5 left-2.5 w-7 h-7 bg-slate-950/80 backdrop-blur-md border border-slate-800 rounded-lg flex items-center justify-center transition-all active:scale-90 cursor-pointer"
+                title="إضافة إلى المفضلة"
+              >
+                <i data-lucide="star" class="w-4 h-4 ${favIconClass}"></i>
+              </button>
+
+              <!-- Series Meta Details -->
+              <div onclick="openSeriesDetail('${item.series_id}')" class="p-3 sm:p-3.5 flex flex-col flex-grow justify-between cursor-pointer gap-1 bg-gradient-to-t from-slate-950/80 to-transparent">
+                <div class="space-y-1">
+                  <h3 class="text-xs sm:text-sm font-black text-slate-200 line-clamp-1 group-hover:text-amber-400 transition-colors">
+                    ${item.name}
+                  </h3>
+                  <p class="text-[9px] sm:text-[10px] text-slate-500 font-mono flex items-center gap-1">
+                    <span>التقييم: ${item.rating || '8.5'}</span>
+                    <span>•</span>
+                    <span>السنة: ${item.releaseDate ? item.releaseDate.split('-')[0] : '2026'}</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+
+        grid.innerHTML = html;
+        lucide.createIcons();
+      }
+
+      // Toggle Bookmark Favorite
+      function toggleFavorite(e, id) {
+        e.stopPropagation();
+        
+        const stringId = String(id);
+        const idx = state.favorites.indexOf(stringId);
+        if (idx > -1) {
+          state.favorites.splice(idx, 1);
+        } else {
+          state.favorites.push(stringId);
+        }
+        
+        saveFavorites();
+        filterAndRender();
+      }
+
+      // Update Result Count Text
+      function updateStatusText() {
+        const text = document.getElementById("grid-status-text");
+        let desc = `يعرض ${state.filteredSeries.length} من أصل ${state.series.length} مسلسل`;
+        
+        if (state.showFavoritesOnly) {
+          desc += " (المفضلة)";
+        } else if (state.showHistoryOnly) {
+          desc += " (المشاهدة مؤخراً)";
+        } else if (state.selectedCategory !== 'all') {
+          const cat = state.categories.find(c => String(c.category_id) === String(state.selectedCategory));
+          if (cat) desc += ` في قسم ${cat.category_name}`;
+        }
+
+        if (state.searchQuery) {
+          desc += ` • نتيجة البحث عن "${state.searchQuery}"`;
+        }
+
+        text.innerText = desc;
+      }
+
+      // Open Series Detailed Panel
+      async function openSeriesDetail(seriesId) {
+        const modal = document.getElementById("detail-modal");
+        modal.classList.remove("hidden");
+        document.body.classList.add("overflow-hidden"); // Disable root body scroll
+
+        // Reset details view
+        document.getElementById("detail-title").innerText = "جاري تحميل تفاصيل المسلسل...";
+        document.getElementById("detail-plot").innerText = "الرجاء الانتظار...";
+        document.getElementById("seasons-navigator").innerHTML = "";
+        document.getElementById("episodes-container").innerHTML = "<div class='text-xs text-slate-500 py-6 text-center animate-pulse'>جاري جلب قائمة الحلقات والمواسم...</div>";
+        document.getElementById("episodes-count-badge").innerText = "0 حلقة";
+        
+        // Find basic metadata from existing array
+        const seriesBase = state.series.find(s => String(s.series_id) === String(seriesId));
+        if (seriesBase) {
+          document.getElementById("detail-title").innerText = seriesBase.name;
+          document.getElementById("detail-genre").innerText = seriesBase.genre || "دراما";
+          document.getElementById("detail-poster").src = seriesBase.cover || "https://images.unsplash.com/photo-1594909122845-11baa439b7bf?w=500";
+          document.getElementById("series-banner-card").style.backgroundImage = `url(${seriesBase.cover || 'https://images.unsplash.com/photo-1574375927938-d5a98e8edd86?w=1200'})`;
+        }
+
+        try {
+          // Fetch series episodes and seasons info
+          const res = await fetch(`${API_ROOT}/series/info/${seriesId}`);
+          if (!res.ok) throw new Error("فشل الاتصال بخادم الحلقات");
+          
+          const seriesData = await res.json();
+          state.selectedSeries = seriesBase || { series_id: seriesId, name: "مسلسل" };
+          state.seriesInfo = seriesData;
+
+          // Hydrate detailed plots/cast if available from IPTV API
+          if (seriesData.info) {
+            document.getElementById("detail-plot").innerText = seriesData.info.plot || seriesBase.plot || "لا يوجد ملخص متاح لقصة هذا المسلسل حالياً.";
+            document.getElementById("detail-director").innerText = seriesData.info.director || "-";
+            document.getElementById("detail-cast").innerText = seriesData.info.cast || "-";
+            document.getElementById("detail-release").innerText = seriesData.info.releaseDate || "-";
+          }
+
+          // Generate Seasons list
+          const seasons = Object.keys(seriesData.episodes || {}).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+          if (seasons.length > 0) {
+            renderSeasonsNavigator(seasons);
+            // Default select first season
+            selectSeason(seasons[0]);
+          } else {
+            document.getElementById("episodes-container").innerHTML = "<div class='text-xs text-slate-500 py-6 text-center'>لم يتم العثور على أي حلقات لهذا المسلسل.</div>";
+          }
+
+          lucide.createIcons();
+        } catch (error) {
+          console.error("Failed to load series info:", error);
+          document.getElementById("detail-plot").innerText = "فشل تحميل تفاصيل المسلسل. يرجى إفراغ الذاكرة المؤقتة وإعادة تجربة الاتصال.";
+        }
+      }
+
+      // Close Details Panel
+      function closeDetailModal() {
+        document.getElementById("detail-modal").classList.add("hidden");
+        document.body.classList.remove("overflow-hidden");
+        closeVideoPlayer();
+      }
+
+      // Render Seasons Pills Navigator
+      function renderSeasonsNavigator(seasons) {
+        const container = document.getElementById("seasons-navigator");
+        let html = "";
+        
+        seasons.forEach(seasonNum => {
+          const isActive = String(state.selectedSeason) === String(seasonNum);
+          html += `
+            <button 
+              onclick="selectSeason('${seasonNum}')"
+              class="px-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                isActive 
+                  ? 'bg-amber-500 border-amber-500 text-slate-950 font-black shadow-lg shadow-amber-500/10' 
+                  : 'text-slate-400 hover:text-white hover:border-slate-700'
+              }"
+            >
+              الموسم ${seasonNum}
+            </button>
+          `;
+        });
+
+        container.innerHTML = html;
+      }
+
+      // Handle Season Change Selection
+      function selectSeason(seasonNum) {
+        state.selectedSeason = seasonNum;
+        
+        // Re-render season navigator
+        const seasons = Object.keys(state.seriesInfo.episodes || {}).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+        renderSeasonsNavigator(seasons);
+
+        // Fetch episodes in this season
+        const eps = state.seriesInfo.episodes[seasonNum] || [];
+        // Sort episodes by episode_num
+        const sortedEps = [...eps].sort((a, b) => a.episode_num - b.episode_num);
+
+        document.getElementById("episodes-count-badge").innerText = `${sortedEps.length} حلقة`;
+        renderEpisodesList(sortedEps);
+      }
+
+      // Render Season Episodes Grid
+      function renderEpisodesList(episodes) {
+        const container = document.getElementById("episodes-container");
+        let html = "";
+
+        if (episodes.length === 0) {
+          container.innerHTML = "<div class='col-span-3 text-xs text-slate-500 py-6 text-center'>لا توجد حلقات متاحة لهذا الموسم حالياً.</div>";
+          return;
+        }
+
+        episodes.forEach(ep => {
+          // Check if watched
+          const isWatched = state.watchHistory.some(h => String(h.episodeId) === String(ep.id));
+          const badgeHtml = isWatched ? `<span class="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded font-black">شوهد</span>` : "";
+
+          html += `
+            <div onclick="playEpisode('${ep.id}')" class="group bg-slate-900/40 hover:bg-slate-800/80 border border-slate-900 hover:border-slate-800 p-3.5 rounded-2xl flex items-center justify-between gap-3 transition-all cursor-pointer active:scale-95 duration-200">
+              <div class="flex items-center gap-3 truncate">
+                <div class="w-10 h-10 bg-slate-950 group-hover:bg-amber-500 rounded-xl flex items-center justify-center text-slate-400 group-hover:text-slate-950 transition-colors shrink-0">
+                  <i data-lucide="play" class="w-4 h-4 fill-current"></i>
+                </div>
+                <div class="truncate space-y-0.5">
+                  <p class="text-[11px] sm:text-xs font-black text-slate-100 group-hover:text-amber-400 transition-colors">
+                    الحلقة ${ep.episode_num} ${ep.title ? ': ' + ep.title : ''}
+                  </p>
+                  <div class="flex items-center gap-2">
+                    <span class="text-[9px] text-slate-500 uppercase font-bold">${ep.container_extension || 'MKV'}</span>
+                    ${badgeHtml}
+                  </div>
+                </div>
+              </div>
+              <div class="text-[10px] text-slate-600 font-mono">
+                S${state.selectedSeason}E${ep.episode_num}
+              </div>
+            </div>
+          `;
+        });
+
+        container.innerHTML = html;
+        lucide.createIcons();
+      }
+
+      // Play Episode Selector
+      function playEpisode(episodeId) {
+        // Find episode details in current state
+        let ep = null;
+        let epList = [];
+
+        Object.keys(state.seriesInfo.episodes).forEach(seasonKey => {
+          const list = state.seriesInfo.episodes[seasonKey] || [];
+          const found = list.find(item => String(item.id) === String(episodeId));
+          if (found) {
+            ep = found;
+            epList = list;
+          }
+        });
+
+        if (!ep) return;
+
+        state.activeEpisode = ep;
+        state.playerEpisodes = epList.sort((a, b) => a.episode_num - b.episode_num);
+
+        // Show player stage
+        const playerContainer = document.getElementById("video-player-container");
+        playerContainer.classList.remove("hidden");
+
+        // Set player URL with server-side proxy
+        const video = document.getElementById("video-element");
+        const ext = ep.container_extension || "mp4";
+        video.src = `${API_ROOT}/stream/${ep.id}/${ext}`;
+
+        // Set deep links for VLC
+        const directStreamUrl = `http://vo5px.top/series/5252761676/6582429481/${ep.id}.${ext}`;
+        const vlcLink = `vlc://${directStreamUrl.replace(/^https?:\/\//, '')}`;
+        document.getElementById("vlc-direct-link").href = vlcLink;
+
+        // Reset state
+        state.isPlaying = false;
+        state.videoPlayError = false;
+        document.getElementById("video-error-overlay").classList.add("hidden");
+
+        // Titles and status
+        document.getElementById("video-title").innerText = `${state.selectedSeries.name} - الموسم ${state.selectedSeason} - الحلقة ${ep.episode_num} ${ep.title ? ': ' + ep.title : ''}`;
+        
+        // Populate control labels
+        const navText = document.getElementById("episodes-navigator");
+        navText.innerText = `الحلقة ${ep.episode_num} من ${state.playerEpisodes.length}`;
+
+        // Banner detailed title
+        const banner = document.getElementById("playing-episode-banner");
+        banner.innerText = `جاري التشغيل: الحلقة ${ep.episode_num}`;
+        banner.classList.remove("hidden");
+
+        // Safe auto play trigger
+        video.load();
+        video.play()
+          .then(() => {
+            state.isPlaying = true;
+            updatePlayPauseButton();
+          })
+          .catch(e => {
+            console.warn("Autoplay blocked or format unsupported", e);
+          });
+
+        // Add to watch history
+        addToHistory(ep);
+
+        // Scroll detail modal to top so user sees the player
+        document.getElementById("detail-modal").scrollTo({ top: 0, behavior: 'smooth' });
+      }
+
+      // Add to watch history logic
+      function addToHistory(ep) {
+        // Remove existing item to avoid duplicate entries
+        state.watchHistory = state.watchHistory.filter(item => String(item.episodeId) !== String(ep.id));
+
+        const item = {
+          seriesId: state.selectedSeries.series_id,
+          seriesName: state.selectedSeries.name,
+          seriesCover: state.selectedSeries.cover,
+          seasonNum: state.selectedSeason,
+          episodeId: ep.id,
+          episodeNum: ep.episode_num,
+          timestamp: Date.now()
+        };
+
+        // Prepend and slice to top 10 watched
+        state.watchHistory.unshift(item);
+        if (state.watchHistory.length > 10) {
+          state.watchHistory.pop();
+        }
+
+        saveWatchHistory();
+      }
+
+      // Clear watch history
+      function clearWatchHistory() {
+        state.watchHistory = [];
+        saveWatchHistory();
+        filterAndRender();
+      }
+
+      // Render watch history section
+      function renderWatchHistorySection() {
+        const sec = document.getElementById("watch-history-section");
+        const list = document.getElementById("watch-history-list");
+
+        if (state.watchHistory.length === 0) {
+          sec.classList.add("hidden");
+          return;
+        }
+
+        sec.classList.remove("hidden");
+
+        let html = "";
+        state.watchHistory.forEach(item => {
+          html += `
+            <div 
+              onclick="resumeWatchFromHistory('${item.seriesId}', '${item.episodeId}')" 
+              class="flex-shrink-0 w-56 bg-slate-950/80 border border-slate-900 rounded-xl overflow-hidden p-2 flex gap-3 cursor-pointer hover:border-amber-500/50 transition-all active:scale-95 duration-200"
+            >
+              <img 
+                src="${item.seriesCover || 'https://images.unsplash.com/photo-1594909122845-11baa439b7bf?w=500'}" 
+                class="w-12 h-16 object-cover rounded-lg shrink-0" 
+                alt=""
+                referrerpolicy="no-referrer"
+              />
+              <div class="flex flex-col justify-center truncate space-y-0.5">
+                <h4 class="text-xs font-black text-slate-100 truncate">${item.seriesName}</h4>
+                <p class="text-[10px] text-amber-400 font-bold">موسم ${item.seasonNum} - حلقة ${item.episodeNum}</p>
+                <p class="text-[9px] text-slate-500">تابع المشاهدة الآن</p>
+              </div>
+            </div>
+          `;
+        });
+
+        list.innerHTML = html;
+      }
+
+      // Resume watching from History carousel click
+      async function resumeWatchFromHistory(seriesId, episodeId) {
+        await openSeriesDetail(seriesId);
+        playEpisode(episodeId);
+      }
+
+      // Export Selected Series Episodes to M3U8 Playlist format
+      function handleExportM3U8() {
+        if (!state.selectedSeries || !state.seriesInfo) return;
+
+        let m3uContent = "#EXTM3U\n";
+        m3uContent += `#PLAYLIST:${state.selectedSeries.name}\n\n`;
+
+        const seasons = Object.keys(state.seriesInfo.episodes).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+
+        seasons.forEach((seasonNum) => {
+          const episodes = state.seriesInfo.episodes[seasonNum] || [];
+          const sortedEpisodes = [...episodes].sort((a, b) => a.episode_num - b.episode_num);
+
+          sortedEpisodes.forEach((episode) => {
+            const ext = episode.container_extension || "mp4";
+            const streamUrl = `http://vo5px.top/series/5252761676/6582429481/${episode.id}.${ext}`;
+            const logoUrl = state.selectedSeries.cover || "";
+            const titleText = episode.title ? `: ${episode.title}` : "";
+            
+            m3uContent += `#EXTINF:-1 tvg-id="${episode.id}" tvg-name="${state.selectedSeries.name} S${seasonNum}E${episode.episode_num}" tvg-logo="${logoUrl}" group-title="${state.selectedSeries.name} - الموسم ${seasonNum}", ${state.selectedSeries.name} - الموسم ${seasonNum} - الحلقة ${episode.episode_num}${titleText}\n`;
+            m3uContent += `${streamUrl}\n\n`;
+          });
+        });
+
+        const blob = new Blob([m3uContent], { type: "application/x-mpegurl;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `${state.selectedSeries.name}.m3u8`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
+
+      // Copy streaming URL
+      function handleCopyStreamLink() {
+        if (!state.activeEpisode) return;
+        
+        const ext = state.activeEpisode.container_extension || "mp4";
+        const url = `http://vo5px.top/series/5252761676/6582429481/${state.activeEpisode.id}.${ext}`;
+        
+        navigator.clipboard.writeText(url)
+          .then(() => {
+            const btnText = document.getElementById("error-copy-btn-text");
+            btnText.innerText = "تم نسخ الرابط بنجاح!";
+            setTimeout(() => {
+              btnText.innerText = "نسخ رابط البث مباشر";
+            }, 2500);
+          })
+          .catch(err => {
+            console.error("Failed to copy text", err);
+          });
+      }
+
+      // Retry Web Playback button handler
+      function retryWebPlayback() {
+        state.videoPlayError = false;
+        document.getElementById("video-error-overlay").classList.add("hidden");
+        const video = document.getElementById("video-element");
+        video.load();
+        video.play().catch(() => {});
+      }
+
+      // Close video player
+      function closeVideoPlayer() {
+        const video = document.getElementById("video-element");
+        video.pause();
+        video.src = "";
+        
+        document.getElementById("video-player-container").classList.add("hidden");
+        document.getElementById("playing-episode-banner").classList.add("hidden");
+        document.getElementById("video-error-overlay").classList.add("hidden");
+        
+        state.isPlaying = false;
+        state.videoPlayError = false;
+        updatePlayPauseButton();
+      }
+
+      // Play/Pause Video
+      function togglePlayPause() {
+        const video = document.getElementById("video-element");
+        if (state.isPlaying) {
+          video.pause();
+        } else {
+          video.play().catch(() => {});
+        }
+      }
+
+      // Toggle Waiting Buffering
+      function toggleWaiting(waiting) {
+        state.isWaiting = waiting;
+        const spinner = document.getElementById("video-buffering");
+        if (waiting) {
+          spinner.classList.remove("hidden");
+        } else {
+          spinner.classList.add("hidden");
+        }
+      }
+
+      // Skip Video Time
+      function skipTime(seconds) {
+        const video = document.getElementById("video-element");
+        video.currentTime += seconds;
+      }
+
+      // Toggle Mute
+      function toggleMute() {
+        const video = document.getElementById("video-element");
+        video.muted = !video.muted;
+        
+        const icon = document.getElementById("volume-icon");
+        if (video.muted) {
+          icon.setAttribute("data-lucide", "volume-x");
+        } else {
+          icon.setAttribute("data-lucide", "volume-2");
+        }
+        lucide.createIcons();
+      }
+
+      // Handle Volume Slider
+      function handleVolumeChange(val) {
+        const video = document.getElementById("video-element");
+        video.volume = val;
+        video.muted = (val === "0");
+      }
+
+      // Timeline Seek handler
+      function handleTimelineSeek(val) {
+        const video = document.getElementById("video-element");
+        const time = (val / 100) * state.duration;
+        video.currentTime = time;
+      }
+
+      // Monitor and Update video playing timestamps
+      function handleTimeUpdate() {
+        const video = document.getElementById("video-element");
+        state.currentTime = video.currentTime;
+        
+        // Update slider percentage
+        const pct = state.duration > 0 ? (video.currentTime / state.duration) * 100 : 0;
+        document.getElementById("timeline-slider").value = pct;
+        
+        // Update labels
+        document.getElementById("current-time-text").innerText = formatTime(video.currentTime);
+        document.getElementById("duration-time-text").innerText = formatTime(state.duration);
+      }
+
+      // Format seconds to readable timer format
+      function formatTime(secs) {
+        if (isNaN(secs)) return "00:00";
+        const h = Math.floor(secs / 3600);
+        const m = Math.floor((secs % 3600) / 60);
+        const s = Math.floor(secs % 60);
+        
+        const mStr = m < 10 ? "0" + m : m;
+        const sStr = s < 10 ? "0" + s : s;
+        
+        if (h > 0) {
+          return `${h}:${mStr}:${sStr}`;
+        }
+        return `${mStr}:${sStr}`;
+      }
+
+      // Update Play/Pause Button Visual State
+      function updatePlayPauseButton() {
+        const icon = document.getElementById("play-btn-icon");
+        if (state.isPlaying) {
+          icon.setAttribute("data-lucide", "pause");
+        } else {
+          icon.setAttribute("data-lucide", "play");
+        }
+        lucide.createIcons();
+      }
+
+      // Picture in Picture mode handler
+      function togglePictureInPicture() {
+        const video = document.getElementById("video-element");
+        if (document.pictureInPictureElement) {
+          document.exitPictureInPicture();
+        } else if (video.requestPictureInPicture) {
+          video.requestPictureInPicture();
+        }
+      }
+
+      // Fullscreen handler
+      function toggleFullscreen() {
+        const player = document.getElementById("video-player-container");
+        if (!document.fullscreenElement) {
+          player.requestFullscreen().catch(err => {
+            console.error("Fullscreen error", err);
+          });
+        } else {
+          document.exitFullscreen();
+        }
+      }
+    </script>
   </body>
 </html>
-

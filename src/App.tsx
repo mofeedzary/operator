@@ -26,7 +26,11 @@ import {
   ListVideo,
   AlertCircle,
   HelpCircle,
-  TrendingUp
+  TrendingUp,
+  ExternalLink,
+  Copy,
+  Download,
+  RefreshCw
 } from "lucide-react";
 import {
   SeriesCategory,
@@ -70,6 +74,12 @@ export default function App() {
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [autoPlayNext, setAutoPlayNext] = useState<boolean>(true);
+
+  // Player HUD & UX improvements
+  const [isWaiting, setIsWaiting] = useState<boolean>(false);
+  const [showControls, setShowControls] = useState<boolean>(true);
+  const [skipIndicator, setSkipIndicator] = useState<"forward" | "backward" | null>(null);
+  const [copiedLink, setCopiedLink] = useState<boolean>(false);
 
   // Watching History
   const [watchedHistory, setWatchedHistory] = useState<WatchedHistory[]>([]);
@@ -316,6 +326,57 @@ export default function App() {
     return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
   }, []);
 
+  // Auto-hide controls timer during active playback
+  useEffect(() => {
+    if (!isPlaying) {
+      setShowControls(true);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setShowControls(false);
+    }, 3500);
+    return () => clearTimeout(timer);
+  }, [isPlaying, currentTime]);
+
+  const handleUserActivity = () => {
+    setShowControls(true);
+  };
+
+  const handleVideoClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    handleUserActivity();
+    if (e.detail === 2) {
+      // Double click / tap detected!
+      const rect = e.currentTarget.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const width = rect.width;
+
+      if (clickX < width / 2) {
+        // Double tap on left half -> Seek backward 10s
+        skipBackward();
+        setSkipIndicator("backward");
+        setTimeout(() => setSkipIndicator(null), 800);
+      } else {
+        // Double tap on right half -> Seek forward 10s
+        skipForward();
+        setSkipIndicator("forward");
+        setTimeout(() => setSkipIndicator(null), 800);
+      }
+    } else if (e.detail === 1) {
+      // Single tap -> toggles controls if hidden, otherwise toggles play/pause
+      if (!showControls) {
+        setShowControls(true);
+      } else {
+        togglePlay();
+      }
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2500);
+  };
+
   // Handle Video Ended (Auto-play Next)
   const handleVideoEnded = () => {
     if (!autoPlayNext || playerEpisodes.length === 0 || !activeEpisode) {
@@ -346,6 +407,26 @@ export default function App() {
   const clearHistory = () => {
     setWatchedHistory([]);
     localStorage.removeItem("xtream_watch_history");
+  };
+
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+
+  const handleRefreshDatabase = async () => {
+    try {
+      setIsRefreshing(true);
+      setError(null);
+      const res = await fetch("/api/cache/clear", { method: "POST" });
+      if (!res.ok) {
+        throw new Error("فشل إفراغ الذاكرة المؤقتة من السيرفر");
+      }
+      // Wait a moment for visual feedback, then reload
+      setTimeout(() => {
+        window.location.reload();
+      }, 800);
+    } catch (err: any) {
+      setError(err.message || "حدث خطأ أثناء تحديث البيانات");
+      setIsRefreshing(false);
+    }
   };
 
   // Fast format time helper
@@ -386,13 +467,25 @@ export default function App() {
               </div>
             </div>
 
-            {/* Server Connection Indicator */}
-            <div className="flex items-center gap-2 md:mr-6">
-              <div className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+            {/* Server Connection Indicator & Refresh Button */}
+            <div className="flex items-center gap-3 md:mr-6 shrink-0">
+              <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full">
+                <div className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </div>
+                <span className="text-[10px] sm:text-xs font-bold text-emerald-400">نشط</span>
               </div>
-              <span className="text-[11px] font-mono text-emerald-400 font-medium">سيرفر نشط</span>
+
+              <button
+                onClick={handleRefreshDatabase}
+                disabled={isRefreshing}
+                className="flex items-center gap-1.5 bg-amber-500/10 hover:bg-amber-500 text-amber-500 hover:text-slate-950 font-black text-[10px] sm:text-xs px-3 py-1 rounded-full border border-amber-500/20 hover:border-amber-500/40 transition-all active:scale-95 disabled:opacity-50 shrink-0 shadow-lg shadow-amber-500/5"
+                title="تحديث وإعادة جلب قائمة المسلسلات من السيرفر"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+                <span>{isRefreshing ? "جاري التحديث..." : "تحديث المسلسلات"}</span>
+              </button>
             </div>
           </div>
 
@@ -509,7 +602,11 @@ export default function App() {
                 <div className="grid grid-cols-1 lg:grid-cols-4">
                   
                   {/* Actual Video Canvas */}
-                  <div className="lg:col-span-3 relative bg-black aspect-video flex items-center justify-center group/player">
+                  <div 
+                    onMouseMove={handleUserActivity}
+                    onTouchStart={handleUserActivity}
+                    className="lg:col-span-3 relative bg-black aspect-video flex flex-col items-center justify-center overflow-hidden group/player select-none"
+                  >
                     
                     {/* The HTML5 video element */}
                     <video
@@ -517,35 +614,84 @@ export default function App() {
                       onTimeUpdate={handleTimeUpdate}
                       onLoadedMetadata={handleLoadedMetadata}
                       onEnded={handleVideoEnded}
-                      className="w-full h-full object-contain"
+                      onWaiting={() => setIsWaiting(true)}
+                      onPlaying={() => setIsWaiting(false)}
+                      onSeeking={() => setIsWaiting(true)}
+                      onSeeked={() => setIsWaiting(false)}
+                      onLoadStart={() => setIsWaiting(true)}
+                      onCanPlay={() => setIsWaiting(false)}
+                      onClick={handleVideoClick}
+                      className="w-full h-full object-contain cursor-pointer"
                       src={`/api/stream/${activeEpisode.id}/${activeEpisode.container_extension || "mp4"}`}
                       playsInline
                     />
 
-                    {/* CUSTOM PLAYER OVERLAYS (Shown on hover) */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40 opacity-0 group-hover/player:opacity-100 focus-within:opacity-100 transition-opacity duration-300 flex flex-col justify-between p-4">
+                    {/* BUFFERING / LOADING OVERLAY */}
+                    {isWaiting && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-[2px] pointer-events-none z-10 transition-all duration-300">
+                        <div className="relative flex items-center justify-center">
+                          <div className="w-14 h-14 border-4 border-amber-500/20 border-t-amber-500 rounded-full animate-spin"></div>
+                          <Tv className="w-6 h-6 text-amber-500 absolute animate-pulse" />
+                        </div>
+                        <p className="text-xs sm:text-sm font-bold text-slate-200 mt-4 tracking-wide animate-pulse text-center px-4">
+                          جاري تهيئة البث المباشر وتعبئة المخزن مؤقتاً...
+                        </p>
+                      </div>
+                    )}
+
+                    {/* SKIP BACKWARD/FORWARD GESTURE FEEDBACK OVERLAYS */}
+                    <AnimatePresence>
+                      {skipIndicator === "backward" && (
+                        <motion.div 
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.8 }}
+                          className="absolute left-6 top-1/2 -translate-y-1/2 z-20 pointer-events-none bg-slate-950/80 border border-slate-800 rounded-full p-4 flex flex-col items-center justify-center text-amber-500 text-xs font-bold shadow-lg"
+                        >
+                          <RotateCcw className="w-7 h-7 mb-1 animate-spin" style={{ animationDuration: '0.8s' }} />
+                          <span>-10 ثانية</span>
+                        </motion.div>
+                      )}
+                      {skipIndicator === "forward" && (
+                        <motion.div 
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.8 }}
+                          className="absolute right-6 top-1/2 -translate-y-1/2 z-20 pointer-events-none bg-slate-950/80 border border-slate-800 rounded-full p-4 flex flex-col items-center justify-center text-amber-500 text-xs font-bold shadow-lg"
+                        >
+                          <RotateCw className="w-7 h-7 mb-1 animate-spin" style={{ animationDuration: '0.8s' }} />
+                          <span>+10 ثانية</span>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {/* CUSTOM PLAYER OVERLAYS (Netflix style auto-hide) */}
+                    <div className={`absolute inset-0 bg-gradient-to-t from-black/95 via-black/35 to-black/85 flex flex-col justify-between p-3 sm:p-5 transition-opacity duration-300 z-10 ${showControls ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
                       
                       {/* Top Overlay Actions */}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="text-[11px] font-mono bg-black/60 px-2 py-1 rounded border border-slate-800 text-slate-300">
-                            صيغة الملف: {activeEpisode.container_extension?.toUpperCase() || "MP4"}
+                          <span className="text-[10px] sm:text-xs font-bold bg-slate-950/90 border border-slate-800 px-2.5 py-1 rounded-full text-slate-300">
+                            صيغة الملف: {(activeEpisode.container_extension || "mp4").toUpperCase()}
                           </span>
                         </div>
                         
                         <div className="flex items-center gap-2">
                           {/* Speed Multiplier dropdown */}
                           <div className="relative group/speed">
-                            <button className="flex items-center gap-1.5 bg-slate-950/80 hover:bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800 text-xs text-slate-300 font-semibold">
+                            <button className="flex items-center gap-1.5 bg-slate-950/85 hover:bg-slate-900 px-3 py-1.5 rounded-full border border-slate-800/80 text-[10px] sm:text-xs text-slate-300 font-bold">
                               <Gauge className="w-3.5 h-3.5 text-amber-500" />
                               <span>السرعة ({playbackSpeed}x)</span>
                             </button>
-                            <div className="absolute bottom-full left-0 mb-1 hidden group-hover/speed:block bg-slate-950 border border-slate-800 rounded-lg overflow-hidden py-1 w-24 shadow-xl">
+                            <div className="absolute bottom-full left-0 mb-2 hidden group-hover/speed:block bg-slate-950 border border-slate-800 rounded-xl overflow-hidden py-1 w-24 shadow-2xl">
                               {[0.5, 1, 1.25, 1.5, 2].map((sp) => (
                                 <button
                                   key={sp}
-                                  onClick={() => changeSpeed(sp)}
-                                  className={`w-full text-center py-1.5 text-xs block hover:bg-amber-500 hover:text-slate-950 ${playbackSpeed === sp ? "text-amber-400 font-bold" : "text-slate-300"}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    changeSpeed(sp);
+                                  }}
+                                  className={`w-full text-center py-2 text-xs block hover:bg-amber-500 hover:text-slate-950 transition-colors ${playbackSpeed === sp ? "text-amber-400 font-extrabold bg-amber-500/10" : "text-slate-300"}`}
                                 >
                                   {sp}x
                                 </button>
@@ -556,69 +702,124 @@ export default function App() {
                       </div>
 
                       {/* Middle Big Play Indicator */}
-                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-6">
                         <button
-                          onClick={togglePlay}
-                          className="p-5 bg-amber-500/90 text-slate-950 rounded-full hover:scale-115 active:scale-95 transition-all shadow-xl shadow-amber-500/20"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            skipBackward();
+                          }}
+                          className="p-3 bg-slate-950/60 hover:bg-slate-900 text-slate-200 hover:text-amber-500 rounded-full border border-slate-800/80 transition-all hidden sm:block"
+                          title="رجوع 10 ثواني"
+                        >
+                          <RotateCcw className="w-6 h-6" />
+                        </button>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            togglePlay();
+                          }}
+                          className="p-4 sm:p-5 bg-amber-500 text-slate-950 rounded-full hover:scale-110 active:scale-95 transition-all shadow-xl shadow-amber-500/30"
                         >
                           {isPlaying ? (
-                            <svg className="w-8 h-8 fill-current" viewBox="0 0 24 24">
+                            <svg className="w-6 h-6 sm:w-8 sm:h-8 fill-current" viewBox="0 0 24 24">
                               <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
                             </svg>
                           ) : (
-                            <Play className="w-8 h-8 fill-current translate-x-[-1px]" />
+                            <Play className="w-6 h-6 sm:w-8 sm:h-8 fill-current translate-x-[-1px]" />
                           )}
+                        </button>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            skipForward();
+                          }}
+                          className="p-3 bg-slate-950/60 hover:bg-slate-900 text-slate-200 hover:text-amber-500 rounded-full border border-slate-800/80 transition-all hidden sm:block"
+                          title="تقدم 10 ثواني"
+                        >
+                          <RotateCw className="w-6 h-6" />
                         </button>
                       </div>
 
                       {/* Bottom Custom Control Bar */}
-                      <div className="space-y-3">
+                      <div className="space-y-2.5">
                         
                         {/* Timeline / Progress bar */}
                         <div className="flex items-center gap-3">
-                          <span className="text-[11px] font-mono text-slate-300 bg-black/40 px-1.5 py-0.5 rounded">
+                          <span className="text-[10px] sm:text-xs font-mono text-slate-300 bg-slate-950/90 px-2 py-0.5 rounded border border-slate-900">
                             {formatTime(currentTime)}
                           </span>
+                          
+                          {/* Custom range slider with touch helper track size */}
                           <input
                             type="range"
                             min={0}
                             max={duration || 100}
                             value={currentTime}
-                            onChange={(e) => seekTo(parseFloat(e.target.value))}
-                            className="flex-1 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500 focus:outline-none"
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              seekTo(parseFloat(e.target.value));
+                            }}
+                            className="flex-1 h-1.5 sm:h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500 focus:outline-none"
                           />
-                          <span className="text-[11px] font-mono text-slate-300 bg-black/40 px-1.5 py-0.5 rounded">
+                          
+                          <span className="text-[10px] sm:text-xs font-mono text-slate-300 bg-slate-950/90 px-2 py-0.5 rounded border border-slate-900">
                             {formatTime(duration)}
                           </span>
                         </div>
 
                         {/* Control buttons row */}
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-3 sm:gap-5">
                             {/* Play/Pause */}
-                            <button onClick={togglePlay} className="text-slate-100 hover:text-amber-500 transition-colors">
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                togglePlay();
+                              }}
+                              className="text-slate-100 hover:text-amber-500 transition-colors p-1"
+                            >
                               {isPlaying ? (
-                                <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24">
+                                <svg className="w-5.5 h-5.5 sm:w-6 sm:h-6 fill-current" viewBox="0 0 24 24">
                                   <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
                                 </svg>
                               ) : (
-                                <Play className="w-6 h-6 fill-current" />
+                                <Play className="w-5.5 h-5.5 sm:w-6 sm:h-6 fill-current" />
                               )}
                             </button>
 
-                            {/* Backward 10s */}
-                            <button onClick={skipBackward} className="text-slate-300 hover:text-amber-500 transition-colors" title="رجوع 10 ثواني">
+                            {/* Mobile backward indicator button */}
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                skipBackward();
+                              }}
+                              className="text-slate-300 hover:text-amber-500 transition-colors p-1 sm:hidden"
+                            >
                               <RotateCcw className="w-5 h-5" />
                             </button>
 
-                            {/* Forward 10s */}
-                            <button onClick={skipForward} className="text-slate-300 hover:text-amber-500 transition-colors" title="تقدم 10 ثواني">
+                            {/* Mobile forward indicator button */}
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                skipForward();
+                              }}
+                              className="text-slate-300 hover:text-amber-500 transition-colors p-1 sm:hidden"
+                            >
                               <RotateCw className="w-5 h-5" />
                             </button>
 
                             {/* Volume section */}
-                            <div className="flex items-center gap-2 group/volume ml-4">
-                              <button onClick={toggleMute} className="text-slate-300 hover:text-amber-500 transition-colors">
+                            <div className="hidden sm:flex items-center gap-2 group/volume ml-2">
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleMute();
+                                }}
+                                className="text-slate-300 hover:text-amber-500 transition-colors"
+                              >
                                 {isMuted || volume === 0 ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
                               </button>
                               <input
@@ -633,20 +834,26 @@ export default function App() {
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-3 sm:gap-5">
                             {/* Auto Play Next Toggle */}
-                            <label className="flex items-center gap-2 cursor-pointer text-[11px] font-semibold text-slate-300">
+                            <label className="flex items-center gap-2 cursor-pointer text-[10px] sm:text-xs font-bold text-slate-300">
                               <input
                                 type="checkbox"
                                 checked={autoPlayNext}
                                 onChange={(e) => setAutoPlayNext(e.target.checked)}
-                                className="rounded bg-slate-900 border-slate-700 text-amber-500 focus:ring-0"
+                                className="rounded bg-slate-950 border-slate-800 text-amber-500 focus:ring-0 w-3.5 h-3.5"
                               />
-                              <span>التشغيل التلقائي للتالي</span>
+                              <span className="hidden xs:inline">التشغيل التلقائي</span>
                             </label>
 
                             {/* Fullscreen */}
-                            <button onClick={toggleFullscreen} className="text-slate-300 hover:text-amber-500 transition-colors">
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleFullscreen();
+                              }}
+                              className="text-slate-300 hover:text-amber-500 transition-colors p-1"
+                            >
                               {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
                             </button>
                           </div>
@@ -698,6 +905,50 @@ export default function App() {
                     </div>
                   </div>
 
+                </div>
+
+                {/* External Player Integration & Playback Compatibility Bar */}
+                <div className="bg-slate-950/80 px-4 sm:px-6 py-4 border-t border-slate-800/60 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs sm:text-sm font-black text-slate-200 flex items-center gap-2">
+                      <ExternalLink className="w-4 h-4 text-amber-500" />
+                      روابط التشغيل الخارجية والتحميل المباشر للهواتف
+                    </span>
+                    <p className="text-[10px] sm:text-xs text-slate-500 leading-relaxed max-w-2xl">
+                      إذا واجهت بطئاً أو عدم توافق صيغة الفيديو (مثل MKV او TS) مع متصفح هاتفك، اضغط لتشغيل الحلقة فوراً على تطبيق <strong>VLC</strong> أو <strong>MX Player</strong> الخارجي بسلاسة تامة، أو انسخ رابط البث المباشر.
+                    </p>
+                  </div>
+                  
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* VLC Direct Stream Protocol Button */}
+                    <a
+                      href={`vlc://vo5px.top/series/5252761676/6582429481/${activeEpisode.id}.${activeEpisode.container_extension || "mp4"}`}
+                      className="px-4 py-2 bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-slate-950 font-black text-xs rounded-xl flex items-center gap-2 shadow-lg shadow-orange-600/10 hover:shadow-orange-600/20 transition-all active:scale-95 shrink-0"
+                    >
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                      التشغيل في تطبيق VLC
+                    </a>
+
+                    {/* Copy Direct URL */}
+                    <button
+                      onClick={() => copyToClipboard(`http://vo5px.top/series/5252761676/6582429481/${activeEpisode.id}.${activeEpisode.container_extension || "mp4"}`)}
+                      className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-slate-200 font-bold text-xs rounded-xl border border-slate-800 flex items-center gap-2 transition-all active:scale-95 relative shrink-0"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>{copiedLink ? "تم نسخ الرابط!" : "نسخ رابط البث"}</span>
+                    </button>
+
+                    {/* Download Episode Button */}
+                    <a
+                      href={`http://vo5px.top/series/5252761676/6582429481/${activeEpisode.id}.${activeEpisode.container_extension || "mp4"}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-slate-100 font-bold text-xs rounded-xl border border-slate-800 flex items-center gap-2 transition-all shrink-0"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      تحميل مباشر
+                    </a>
+                  </div>
                 </div>
 
               </div>

@@ -1,25 +1,41 @@
 import express from "express";
 import path from "path";
 import http from "http";
+import fs from "fs";
 import { createServer as createViteServer } from "vite";
 
-// In-Memory Cache implementation to drastically speed up data fetching
+// File-based Cache implementation to survive restarts and drastically speed up data fetching
+const CACHE_FILE = path.join(process.cwd(), "xtream_cache.json");
+
 interface CacheEntry {
   data: any;
   timestamp: number;
 }
 
-const apiCache: { [key: string]: CacheEntry } = {};
+let apiCache: { [key: string]: CacheEntry } = {};
+
+// Load cache from disk if it exists
+try {
+  if (fs.existsSync(CACHE_FILE)) {
+    const fileContent = fs.readFileSync(CACHE_FILE, "utf-8");
+    apiCache = JSON.parse(fileContent);
+    console.log("Successfully loaded Xtream cache from disk. Total cached items:", Object.keys(apiCache).length);
+  }
+} catch (e: any) {
+  console.error("Failed to load cache from disk:", e.message);
+}
+
 const CACHE_TTL_MS = {
-  info: 15 * 60 * 1000,       // 15 minutes for account info
-  categories: 30 * 60 * 1000, // 30 minutes for category list
-  series: 10 * 60 * 1000,     // 10 minutes for series list
-  seriesInfo: 30 * 60 * 1000, // 30 minutes for individual series seasons/episodes
+  info: 12 * 60 * 60 * 1000,       // 12 hours for account info
+  categories: 24 * 60 * 60 * 1000, // 24 hours for category list
+  series: 24 * 60 * 60 * 1000,     // 24 hours for series list
+  seriesInfo: 24 * 60 * 60 * 1000, // 24 hours for individual series seasons/episodes
 };
 
 function getFromCache(key: string, ttl: number): any | null {
   const entry = apiCache[key];
   if (entry && Date.now() - entry.timestamp < ttl) {
+    console.log(`[CACHE HIT] Returning cached data for key: ${key}`);
     return entry.data;
   }
   return null;
@@ -30,6 +46,14 @@ function setToCache(key: string, data: any) {
     data,
     timestamp: Date.now(),
   };
+  // Write cache back to disk asynchronously
+  fs.writeFile(CACHE_FILE, JSON.stringify(apiCache, null, 2), "utf-8", (err) => {
+    if (err) {
+      console.error("Failed to save cache to disk:", err.message);
+    } else {
+      console.log(`[CACHE SAVE] Saved cache to disk for key: ${key}`);
+    }
+  });
 }
 
 async function startServer() {
@@ -42,6 +66,21 @@ async function startServer() {
   const XTREAM_PASS = "6582429481";
 
   app.use(express.json());
+
+  // API Route: Clear disk cache
+  app.post("/api/cache/clear", (req, res) => {
+    try {
+      apiCache = {};
+      if (fs.existsSync(CACHE_FILE)) {
+        fs.unlinkSync(CACHE_FILE);
+      }
+      console.log("[CACHE CLEAR] Disk and memory cache cleared successfully.");
+      res.json({ success: true, message: "تم إفراغ الذاكرة المؤقتة وتحديث البيانات بنجاح!" });
+    } catch (error: any) {
+      console.error("Failed to clear cache:", error.message);
+      res.status(500).json({ error: "فشل إفراغ الذاكرة المؤقتة", details: error.message });
+    }
+  });
 
   // API Route: Get Server and Account Info (Login details check)
   app.get("/api/info", async (req, res) => {
